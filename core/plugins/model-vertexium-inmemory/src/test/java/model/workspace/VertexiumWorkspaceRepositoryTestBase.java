@@ -4,10 +4,7 @@ import com.google.inject.Injector;
 import com.v5analytics.simpleorm.SimpleOrmSession;
 import org.junit.After;
 import org.mockito.Mock;
-import org.vertexium.Metadata;
-import org.vertexium.Vertex;
-import org.vertexium.VertexiumException;
-import org.vertexium.Visibility;
+import org.vertexium.*;
 import org.vertexium.id.IdGenerator;
 import org.vertexium.id.QueueIdGenerator;
 import org.vertexium.id.UUIDIdGenerator;
@@ -55,6 +52,8 @@ public abstract class VertexiumWorkspaceRepositoryTestBase {
     protected InMemoryUser user2;
     protected QueueIdGenerator idGenerator;
     protected Vertex entity1Vertex;
+    protected Vertex entity2Vertex;
+    protected Edge entity1Edge;
     protected VertexiumWorkspaceRepository workspaceRepository;
     protected WorkspaceHelper workspaceHelper;
     protected WorkspaceUndoHelper workspaceUndoHelper;
@@ -205,6 +204,16 @@ public abstract class VertexiumWorkspaceRepositoryTestBase {
                 .addPropertyValue("key1", "prop1", "value1", new Metadata(), DEFAULT_VISIBILITY)
                 .addPropertyValue("key9", "prop9", "value9", new Metadata(), DEFAULT_VISIBILITY)
                 .save(NO_AUTHORIZATIONS);
+
+        String entity2VertexId = "entity2Id";
+        entity2Vertex = graph.prepareVertex(entity2VertexId, DEFAULT_VISIBILITY)
+                .save(NO_AUTHORIZATIONS);
+
+        String entity1EdgeId = "edge1Id";
+        entity1Edge = graph.prepareEdge(entity1EdgeId, entity1VertexId, entity2VertexId, DEFAULT_VISIBILITY)
+                .addPropertyValue("key1", "prop1", "value1-edge", new Metadata(), DEFAULT_VISIBILITY)
+                .save(NO_AUTHORIZATIONS);
+
     }
 
     @After

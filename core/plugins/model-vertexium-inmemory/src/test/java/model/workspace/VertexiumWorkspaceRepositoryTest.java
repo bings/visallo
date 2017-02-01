@@ -2,17 +2,19 @@ package model.workspace;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.vertexium.Authorizations;
-import org.vertexium.Metadata;
-import org.vertexium.Vertex;
-import org.vertexium.Visibility;
+import org.vertexium.*;
 import org.vertexium.inmemory.InMemoryAuthorizations;
+import org.vertexium.util.IterableUtils;
 import org.visallo.core.exception.VisalloAccessDeniedException;
 import org.visallo.core.model.graph.VisibilityAndElementMutation;
+import org.visallo.core.model.properties.VisalloProperties;
 import org.visallo.core.model.user.UserRepository;
 import org.visallo.core.model.workspace.Workspace;
+import org.visallo.core.model.workspace.WorkspaceProperties;
 import org.visallo.core.model.workspace.WorkspaceRepository;
 import org.visallo.core.model.workspace.WorkspaceUser;
+import org.visallo.core.security.DirectVisibilityTranslator;
+import org.visallo.core.util.SandboxStatusUtil;
 import org.visallo.web.clientapi.model.*;
 
 import java.util.ArrayList;
@@ -209,7 +211,7 @@ public class VertexiumWorkspaceRepositoryTest extends VertexiumWorkspaceReposito
     }
 
     @Test
-    public void testPublishPropertyWithoutChange() {
+    public void testPublishPropertyOnVertexWithoutChange() {
         String workspaceId = "testWorkspaceId";
         idGenerator.push(workspaceId);
         idGenerator.push(workspaceId + "_to_" + user1.getUserId());
@@ -237,7 +239,7 @@ public class VertexiumWorkspaceRepositoryTest extends VertexiumWorkspaceReposito
     }
 
     @Test
-    public void testPublishPropertyWithChange() {
+    public void testPublishPropertyOnVertexWithChange() {
         String workspaceId = "testWorkspaceId";
         idGenerator.push(workspaceId);
         idGenerator.push(workspaceId + "_to_" + user1.getUserId());
@@ -286,5 +288,93 @@ public class VertexiumWorkspaceRepositoryTest extends VertexiumWorkspaceReposito
                     0).getErrorMessage();
             assertEquals(failMessage, 0, response.getFailures().size());
         }
+    }
+
+    @Test
+    public void testPublishPropertyOnEdgeWithChange() {
+        String workspaceId = "testWorkspaceId";
+        idGenerator.push(workspaceId);
+        idGenerator.push(workspaceId + "_to_" + user1.getUserId());
+        Workspace workspace = workspaceRepository.add("workspace1", user1);
+        workspaceId = workspace.getWorkspaceId();
+        InMemoryAuthorizations workspaceAuthorizations = new InMemoryAuthorizations(workspaceId);
+
+        graph.prepareEdge(workspaceId, entity1Vertex.getId(), WorkspaceProperties.WORKSPACE_TO_ENTITY_RELATIONSHIP_IRI, DEFAULT_VISIBILITY).save(workspaceAuthorizations);
+        graph.prepareEdge(workspaceId, entity2Vertex.getId(), WorkspaceProperties.WORKSPACE_TO_ENTITY_RELATIONSHIP_IRI, DEFAULT_VISIBILITY).save(workspaceAuthorizations);
+
+        when(termMentionRepository.findByEdgeIdAndProperty(
+                eq(entity1Edge),
+                eq("key1"),
+                eq("prop1"),
+                any(Visibility.class),
+                eq(workspaceAuthorizations)
+        )).thenReturn(new ArrayList<>());
+
+        VisibilityJson visibilityJson = new VisibilityJson();
+        visibilityJson.addWorkspace(workspaceId);
+
+        Metadata metadata = new Metadata();
+        VisalloProperties.VISIBILITY_JSON_METADATA.setMetadata(metadata, visibilityJson, new DirectVisibilityTranslator().getDefaultVisibility());
+
+        VisibilityAndElementMutation<Edge> setPropertyResult = graphRepository.setProperty(
+                entity1Edge,
+                "prop1",
+                "key1",
+                "newValue-edge",
+                metadata,
+                "",
+                "",
+                workspace.getWorkspaceId(),
+                "I changed it",
+                new ClientApiSourceInfo(),
+                user1,
+                workspaceAuthorizations
+        );
+        setPropertyResult.elementMutation.save(workspaceAuthorizations);
+        graph.flush();
+
+        List<Property> properties = IterableUtils.toList(graph.getEdge(entity1Edge.getId(), workspaceAuthorizations).getProperties());
+        for (Property p : properties) {
+            if (p.getName().equals("prop1")) {
+                VisibilityJson visibilityJson1 = VisalloProperties.VISIBILITY_JSON_METADATA.getMetadataValue(p.getMetadata());
+                assertEquals("", visibilityJson1.getSource());
+                assertEquals(1, visibilityJson1.getWorkspaces().size());
+            }
+        }
+        SandboxStatus[] sandboxStatuses = SandboxStatusUtil.getPropertySandboxStatuses(properties, workspaceId);
+        assertEquals("", entity1Edge.getProperty("key1", "prop1").getVisibility().getVisibilityString());
+        assertEquals(1, sandboxStatuses.length);
+        assertEquals(SandboxStatus.PRIVATE, sandboxStatuses[0]);
+
+        ClientApiPublishItem[] publishDate = new ClientApiPublishItem[1];
+        publishDate[0] = new ClientApiPropertyPublishItem() {{
+            setAction(Action.ADD_OR_UPDATE);
+            setKey("key1");
+            setName("prop1");
+            setEdgeId(entity1Edge.getId());
+        }};
+        ClientApiWorkspacePublishResponse response = workspaceRepository.publish(
+                publishDate,
+                workspace.getWorkspaceId(),
+                workspaceAuthorizations
+        );
+        if (response.getFailures().size() > 0) {
+            String failMessage = "Had " + response.getFailures().size() + " failure(s): " + ": " + response.getFailures().get(
+                    0).getErrorMessage();
+            assertEquals(failMessage, 0, response.getFailures().size());
+        }
+
+        graph.flush();
+        Edge edge = graph.getEdge(entity1Edge.getId(), workspaceAuthorizations);
+        Property property = edge.getProperty("key1", "prop1");
+        assertNotNull(property);
+        VisibilityJson visibilityJson1 = VisalloProperties.VISIBILITY_JSON_METADATA.getMetadataValue(property.getMetadata());
+        assertNotNull(visibilityJson1);
+        assertEquals("", visibilityJson1.getSource());
+        assertEquals(0, visibilityJson1.getWorkspaces().size());
+        sandboxStatuses = SandboxStatusUtil.getPropertySandboxStatuses(IterableUtils.toList(edge.getProperties()), workspaceId);
+        assertEquals(1, sandboxStatuses.length);
+        assertEquals(SandboxStatus.PUBLIC, sandboxStatuses[0]);
+        assertEquals("", property.getVisibility().getVisibilityString());
     }
 }
