@@ -17,6 +17,7 @@ import org.vertexium.inmemory.InMemoryAuthorizations;
 import org.vertexium.inmemory.InMemoryGraph;
 import org.vertexium.inmemory.InMemoryGraphConfiguration;
 import org.vertexium.search.DefaultSearchIndex;
+import org.vertexium.util.IterableUtils;
 import org.visallo.core.config.Configuration;
 import org.visallo.core.config.HashMapConfigurationLoader;
 import org.visallo.core.exception.VisalloException;
@@ -93,9 +94,15 @@ public class GraphBuilderParserHandlerTest {
     private Vertex structuredFileVertex;
     private ParseMapping parseMapping;
     private GraphBuilderParserHandler parserHandler;
+    private GraphBuilderParserHandler multiParserHandler;
     private UserPropertyAuthorizationRepository authorizationRepository;
     private UserPropertyPrivilegeRepository privilegeRepository;
     private GraphRepository graphRepository;
+    private OntologyRepository ontologyRepository;
+    private WorkspaceRepository workspaceRepository;
+    private WorkspaceHelper workspaceHelper;
+    private VisibilityTranslator visibilityTranslator;
+    private User testUser;
 
     @Before
     public void before() throws Exception {
@@ -106,7 +113,7 @@ public class GraphBuilderParserHandlerTest {
         Configuration visalloConfiguration = new HashMapConfigurationLoader(configMap).createConfiguration();
         NonLockingLockRepository lockRepository = new NonLockingLockRepository();
 
-        OntologyRepository ontologyRepository = new InMemoryOntologyRepository(
+        ontologyRepository = new InMemoryOntologyRepository(
                 graph,
                 visalloConfiguration,
                 lockRepository
@@ -147,7 +154,7 @@ public class GraphBuilderParserHandlerTest {
                 privilegeRepository
         );
 
-        VisibilityTranslator visibilityTranslator = new DirectVisibilityTranslator();
+        visibilityTranslator = new DirectVisibilityTranslator();
 
         TermMentionRepository termMentionRepository = new TermMentionRepository(graph, graphAuthorizationRepository);
         graphRepository = new GraphRepository(
@@ -156,7 +163,7 @@ public class GraphBuilderParserHandlerTest {
                 termMentionRepository,
                 workQueueRepository
         );
-        WorkspaceRepository workspaceRepository = new VertexiumWorkspaceRepository(
+        workspaceRepository = new VertexiumWorkspaceRepository(
                 graph,
                 visalloConfiguration,
                 graphRepository,
@@ -171,7 +178,7 @@ public class GraphBuilderParserHandlerTest {
                 authorizationRepository
         );
 
-        WorkspaceHelper workspaceHelper = new WorkspaceHelper(
+        workspaceHelper = new WorkspaceHelper(
                 termMentionRepository,
                 workQueueRepository,
                 graph,
@@ -193,48 +200,30 @@ public class GraphBuilderParserHandlerTest {
                 authorizations
         );
 
-        VertexBuilder structuredFileVertexBuilder = graph.prepareVertex(visibilityTranslator.getDefaultVisibility());
-        VisibilityJson visibilityJson = VisibilityJson.updateVisibilitySourceAndAddWorkspaceId(new VisibilityJson(), "", WORKSPACE_ID);
-        VisalloProperties.VISIBILITY_JSON.setProperty(structuredFileVertexBuilder, visibilityJson, new Visibility(""));
-        structuredFileVertex = structuredFileVertexBuilder.save(authorizations);
         dateFormat.setTimeZone(TimeZone.getTimeZone("America/New_York"));
 
-        User user = userRepository.findOrAddUser(
+        testUser = userRepository.findOrAddUser(
                 "junit",
                 "JUnit",
                 "junit@v5analytics.com",
                 "password"
         );
-        workspaceRepository.add(WORKSPACE_ID, "Default Junit", user);
+        workspaceRepository.add(WORKSPACE_ID, "Default Junit", testUser);
 
+        structuredFileVertex = createStructuredFileVertex(WORKSPACE_ID, null);
         InputStream parseMappingJson = this.getClass().getResourceAsStream("parsemapping.json");
         parseMapping = new ParseMapping(ontologyRepository, null, null, IOUtils.toString(parseMappingJson, "UTF-8"));
-        parserHandler = new GraphBuilderParserHandler(
-                graph,
-                user,
-                visibilityTranslator,
-                privilegeRepository,
-                graph.createAuthorizations(WORKSPACE_ID),
-                workspaceRepository,
-                workspaceHelper,
-                WORKSPACE_ID,
-                false,
-                structuredFileVertex,
-                parseMapping,
-                null
-        );
-
-        parserHandler.newSheet("SheetA");
+        parserHandler = createParserHandler(structuredFileVertex, parseMapping, WORKSPACE_ID, testUser, authorizations);
     }
 
     @Test
     public void testAddRow() throws Exception {
-        doParse(false, true, 0, new String[]{"John Smith", "3/13/2015", "yes"});
+        doParse(parserHandler, false, true, 0, new String[]{"John Smith", "3/13/2015", "yes"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected new vertices to be created", 3, Iterables.size(vertices)); // CSV, PERSON, TX
 
-        List<Vertex> generated = getGenerated();
+        List<Vertex> generated = getGenerated(structuredFileVertex, authorizations);
         assertEquals("Should have created 2 entities", 2, generated.size());
         for (Vertex vertex : generated) {
             String conceptType = VisalloProperties.CONCEPT_TYPE.getPropertyValue(vertex);
@@ -269,12 +258,12 @@ public class GraphBuilderParserHandlerTest {
     public void testAddRowMultipleTimes() throws Exception {
         String[] row = new String[]{"John Smith", "3/13/2015", "yes"};
 
-        doParse(false, true, 0, row);
+        doParse(parserHandler, false, true, 0, row);
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected new vertices to be created", 3, Iterables.size(vertices));
 
-        List<Vertex> generated = getGenerated();
+        List<Vertex> generated = getGenerated(structuredFileVertex, authorizations);
         assertEquals("Should have created 2 entities", 2, generated.size());
 
         Predicate<? super Vertex> hasOneConceptType = vertex -> {
@@ -285,25 +274,63 @@ public class GraphBuilderParserHandlerTest {
         assertTrue("All have one concept type", generated.stream().allMatch(hasOneConceptType));
 
         parserHandler.cleanUpExistingImport();
-        assertEquals("No linked entities after cleaning", 0, getGenerated().size());
+        assertEquals("No linked entities after cleaning", 0, getGenerated(structuredFileVertex, authorizations).size());
 
-        doParse(false, true, 0, row);
-        assertTrue("All have one concept type after reimport", getGenerated().stream().allMatch(hasOneConceptType));
+        doParse(parserHandler, false, true, 0, row);
+        assertTrue("All have one concept type after reimport", getGenerated(structuredFileVertex, authorizations).stream().allMatch(hasOneConceptType));
     }
 
         @Test
     public void testAddRowDryRun() throws Exception {
-        doParse(true, true, 0, new String[]{"John Smith", "3/13/2015", "yes"});
+        doParse(parserHandler, true, true, 0, new String[]{"John Smith", "3/13/2015", "yes"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected no new vertices to be created", 1, Iterables.size(vertices)); // CSV only
     }
 
     @Test
+    public void testAddRowWithMultipleColumnsOfSameProperty() throws Exception {
+        String multiParseMappingString = "{" +
+                "\"vertices\": [" +
+                    "{" +
+                        "\"properties\":[" +
+                            "{ \"name\": \"http://visallo.org#conceptType\", \"value\": \"http://visallo.org/structured-file-test#person\" }," +
+                            "{ \"name\":\"http://visallo.org/structured-file-test#name\", \"key\":0 }," +
+                            "{ \"name\":\"http://visallo.org/structured-file-test#name\", \"key\":1 }" +
+                        "]" +
+                    "}" +
+                "]," +
+                "\"edges\": []" +
+        "}";
+        ParseMapping multiParseMapping = new ParseMapping(ontologyRepository, null, null, multiParseMappingString);
+        Vertex multiStructuredFileVertex = createStructuredFileVertex(WORKSPACE_ID, null);
+        multiParserHandler = createParserHandler(
+                multiStructuredFileVertex,
+                multiParseMapping,
+                WORKSPACE_ID,
+                testUser,
+                authorizations
+        );
+
+        String[] row = new String[]{"John Smith", "Jane Doe"};
+
+        doParse(multiParserHandler, false, true, 0, row);
+
+        List<Vertex> generated = getGenerated(multiStructuredFileVertex, authorizations);
+        assertEquals("Should have created 1 entity", 1, generated.size());
+
+        Vertex vertex = generated.get(0);
+        assertEquals("Entity should have 2 name properties", 2, IterableUtils.count(vertex.getProperties(PERSON_NAME_NAME)));
+        assertEquals("Entity should have name John Smith", "John Smith", vertex.getPropertyValue(PERSON_NAME_NAME, 0));
+        assertEquals("Entity should have name Jane Doe", "Jane Doe", vertex.getPropertyValue(PERSON_NAME_NAME, 1));
+    }
+
+
+    @Test
     public void testAddRowWithTooManyErrors() throws Exception {
         parserHandler.maxParseErrors = 1;
 
-        doParse(true, false, 1, new String[]{"John Smith", "3/13/2015", "you bet"});
+        doParse(parserHandler, true, false, 1, new String[]{"John Smith", "3/13/2015", "you bet"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected no new vertices to be created", 1, Iterables.size(vertices)); // CSV only
@@ -312,7 +339,7 @@ public class GraphBuilderParserHandlerTest {
     @Test
     public void testAddRowWithUnhandledError() throws Exception {
         try {
-            doParse(false, false, 1, new String[]{"John Smith", "3/13/2015", "you bet"});
+            doParse(parserHandler, false, false, 1, new String[]{"John Smith", "3/13/2015", "you bet"});
             fail("An exception should have been thrown.");
         } catch (VisalloException ve) {
             // we expect this
@@ -324,9 +351,9 @@ public class GraphBuilderParserHandlerTest {
         PropertyMapping fraudMapping = findPropertyMapping(TX_FRAUD_NAME);
         fraudMapping.errorHandlingStrategy = PropertyMapping.ErrorHandlingStrategy.SKIP_CELL;
 
-        doParse(false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
+        doParse(parserHandler, false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
 
-        Optional<Vertex> txVertexOpt = getGenerated().stream()
+        Optional<Vertex> txVertexOpt = getGenerated(structuredFileVertex, authorizations).stream()
                 .filter(vertex -> VisalloProperties.CONCEPT_TYPE.getPropertyValue(vertex).equals(TX_CONCEPT_TYPE))
                 .findFirst();
 
@@ -340,19 +367,19 @@ public class GraphBuilderParserHandlerTest {
         PropertyMapping fraudMapping = findPropertyMapping(TX_FRAUD_NAME);
         fraudMapping.errorHandlingStrategy = PropertyMapping.ErrorHandlingStrategy.SKIP_VERTEX;
 
-        doParse(false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
+        doParse(parserHandler, false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected new vertices to be created", 2, Iterables.size(vertices)); // CSV, PERSON
 
         assertTrue("Unable to find new person vertex",
-            getGenerated().stream()
+            getGenerated(structuredFileVertex, authorizations).stream()
                 .filter(vertex -> VisalloProperties.CONCEPT_TYPE.getPropertyValue(vertex).equals(PERSON_CONCEPT_TYPE))
                 .findFirst()
                 .isPresent());
 
         assertFalse("Should not have found the transaction vertex",
-            getGenerated().stream()
+            getGenerated(structuredFileVertex, authorizations).stream()
                 .filter(vertex -> VisalloProperties.CONCEPT_TYPE.getPropertyValue(vertex).equals(TX_CONCEPT_TYPE))
                 .findFirst()
                 .isPresent());
@@ -363,7 +390,7 @@ public class GraphBuilderParserHandlerTest {
         PropertyMapping fraudMapping = findPropertyMapping(TX_FRAUD_NAME);
         fraudMapping.errorHandlingStrategy = PropertyMapping.ErrorHandlingStrategy.SKIP_ROW;
 
-        doParse(false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
+        doParse(parserHandler, false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected new vertices to be created", 1, Iterables.size(vertices)); // CSV, PERSON
@@ -380,9 +407,9 @@ public class GraphBuilderParserHandlerTest {
         PropertyMapping fraudMapping = findPropertyMapping(TX_FRAUD_NAME);
         fraudMapping.errorHandlingStrategy = PropertyMapping.ErrorHandlingStrategy.SET_CELL_ERROR_PROPERTY;
 
-        doParse(false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
+        doParse(parserHandler, false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
 
-        Optional<Vertex> txVertexOpt = getGenerated().stream()
+        Optional<Vertex> txVertexOpt = getGenerated(structuredFileVertex, authorizations).stream()
                 .filter(vertex -> VisalloProperties.CONCEPT_TYPE.getPropertyValue(vertex).equals(TX_CONCEPT_TYPE))
                 .findFirst();
 
@@ -424,12 +451,12 @@ public class GraphBuilderParserHandlerTest {
         PropertyMapping fraudMapping = findPropertyMapping(TX_FRAUD_NAME);
         fraudMapping.errorHandlingStrategy = PropertyMapping.ErrorHandlingStrategy.SKIP_CELL;
 
-        doParse(false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
+        doParse(parserHandler, false, true, 0, new String[]{"John Smith", "3/13/2015", "you bet"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected new vertices to be created", 3, Iterables.size(vertices)); // CSV, PERSON, TX
 
-        Optional<Vertex> txVertexOpt = getGenerated().stream()
+        Optional<Vertex> txVertexOpt = getGenerated(structuredFileVertex, authorizations).stream()
                 .filter(vertex -> VisalloProperties.CONCEPT_TYPE.getPropertyValue(vertex).equals(TX_CONCEPT_TYPE))
                 .findFirst();
 
@@ -459,7 +486,7 @@ public class GraphBuilderParserHandlerTest {
             parserHandler.parseErrors.errors.add(new ClientApiParseErrors.ParseError());
         }
 
-        doParse(true, true, 101, new String[]{"John Smith", "3/13/2015", "you bet"});
+        doParse(parserHandler, true, true, 101, new String[]{"John Smith", "3/13/2015", "you bet"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected no new vertices to be created", 1, Iterables.size(vertices)); // CSV only
@@ -467,7 +494,7 @@ public class GraphBuilderParserHandlerTest {
 
     @Test
     public void testAddRowThatErrorsAreRecordedProperlyInDryRun() throws Exception {
-        doParse(true, true, 2, new String[]{"John Smith", "SUNDAY", "you bet"});
+        doParse(parserHandler, true, true, 2, new String[]{"John Smith", "SUNDAY", "you bet"});
 
         ClientApiParseErrors.ParseError dateError = parserHandler.parseErrors.errors.get(0);
         Assert.assertEquals(TX_DATE_NAME, dateError.propertyMapping.name);
@@ -489,7 +516,7 @@ public class GraphBuilderParserHandlerTest {
 
     @Test
     public void testCleanUpExistingImport() throws Exception {
-        doParse(false, true, 0, new String[]{"John Smith", "3/13/2015", "yes"});
+        doParse(parserHandler, false, true, 0, new String[]{"John Smith", "3/13/2015", "yes"});
 
         Iterable<Vertex> vertices = graph.getVertices(authorizations);
         assertEquals("Expected new vertices to be created", 3, Iterables.size(vertices)); // CSV, PERSON, TX
@@ -506,6 +533,42 @@ public class GraphBuilderParserHandlerTest {
                 Iterables.get(vertices, 0).getId()
         );
     }
+    private Vertex createStructuredFileVertex(String workspaceId, Visibility visibility) {
+        if (visibility == null) {
+            visibility = visibilityTranslator.getDefaultVisibility();
+        }
+
+        VertexBuilder structuredFileVertexBuilder = graph.prepareVertex(visibility);
+        VisibilityJson visibilityJson = VisibilityJson.updateVisibilitySourceAndAddWorkspaceId(new VisibilityJson(), "", workspaceId);
+        VisalloProperties.VISIBILITY_JSON.setProperty(structuredFileVertexBuilder, visibilityJson, new Visibility(""));
+        return structuredFileVertexBuilder.save(authorizations);
+    }
+
+    private GraphBuilderParserHandler createParserHandler(
+            Vertex structuredFileVertex,
+            ParseMapping parseMapping,
+            String workspaceId,
+            User user,
+            Authorizations authorizations
+    ) {
+        GraphBuilderParserHandler newParserHandler = new GraphBuilderParserHandler(
+                graph,
+                user,
+                visibilityTranslator,
+                privilegeRepository,
+                graph.createAuthorizations(WORKSPACE_ID),
+                workspaceRepository,
+                workspaceHelper,
+                workspaceId,
+                false,
+                structuredFileVertex,
+                parseMapping,
+                null
+        );
+        newParserHandler.newSheet("SheetA");
+
+        return newParserHandler;
+    }
 
     private PropertyMapping findPropertyMapping(String name) {
         for (int i = 0; i < parseMapping.vertexMappings.size(); i++) {
@@ -520,12 +583,12 @@ public class GraphBuilderParserHandlerTest {
         return null;
     }
 
-    private List<Vertex> getGenerated() {
+    private List<Vertex> getGenerated(Vertex structuredFileVertex, Authorizations authorizations) {
         List<Vertex> generated = Lists.newArrayList(structuredFileVertex.getVertices(Direction.BOTH, StructuredIngestOntology.ELEMENT_HAS_SOURCE_IRI, authorizations));
         return generated;
     }
 
-    private void doParse(boolean dryRun, boolean expectedKeepGoing, int expectedErrors, String[] rowValues) {
+    private void doParse(GraphBuilderParserHandler parserHandler, boolean dryRun, boolean expectedKeepGoing, int expectedErrors, String[] rowValues) {
         parserHandler.dryRun = dryRun;
         Map<String, Object> row = createIndexedMap(rowValues);
 
