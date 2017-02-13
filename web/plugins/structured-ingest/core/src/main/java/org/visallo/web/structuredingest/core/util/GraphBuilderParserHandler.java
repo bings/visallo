@@ -486,7 +486,7 @@ public class GraphBuilderParserHandler extends BaseStructuredFileParserHandler {
 
         Object propertyValue = propertyMapping.decodeValue(row);
         if (propertyValue != null) {
-            m.addPropertyValue(MULTI_KEY, propertyMapping.name, propertyValue, metadata, propertyVisibility);
+            m.addPropertyValue(MULTI_KEY + propertyMapping.key, propertyMapping.name, propertyValue, metadata, propertyVisibility);
         }
     }
 }
