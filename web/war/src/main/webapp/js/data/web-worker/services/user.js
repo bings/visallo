@@ -40,7 +40,7 @@ define(['../util/ajax', '../store', '../store/user/actions-impl'], function(ajax
          * @param {object} value
          */
         preference: function(name, value) {
-            store.getStore().dispatch(userActions.putUserPreference(name, value))
+            store.getStore().dispatch(userActions.putUserPreference({ name, value }))
             return ajax('POST', '/user/ui-preferences', {
                 name: name,
                 value: value
