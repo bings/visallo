@@ -14,9 +14,15 @@ define([
     acl) {
     'use strict';
 
+
+    /**
+     * @param {object|string} config Either an object or the string "DIVIDER"
+     * @param {string} config.event The event to fire when clicked
+     * @param {string} config.title The text to display in the toolbar
+     */
     registry.documentExtensionPoint('org.visallo.detail.toolbar',
-        'Add detail pane toolbar items',
-        function(e) {
+        'Add element inspector toolbar items',
+        function val(e) {
             return e === 'DIVIDER' || (
                 ('event' in e) && ('title' in e)
                 );

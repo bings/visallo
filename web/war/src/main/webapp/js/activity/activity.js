@@ -68,7 +68,7 @@ define([
 
         this.after('initialize', function() {
             registry.documentExtensionPoint(
-                ACTIVITY_EXTENSTION_POINT,
+                'org.visallo.activity',
                 'Custom activity rows based on events or long running processes.',
                 function(e) {
                     return ('type' in e) && ('kind' in e);
