@@ -13,6 +13,7 @@ import org.visallo.core.exception.VisalloResourceNotFoundException;
 import org.visallo.core.model.ontology.Concept;
 import org.visallo.core.model.ontology.OntologyRepository;
 import org.visallo.core.model.properties.VisalloProperties;
+import org.visallo.core.model.user.UserRepository;
 import org.visallo.core.model.workQueue.Priority;
 import org.visallo.core.model.workQueue.WorkQueueRepository;
 import org.visallo.core.model.workspace.Workspace;
@@ -46,6 +47,7 @@ public class VertexUploadImage implements ParameterizedHandler {
     private final WorkQueueRepository workQueueRepository;
     private final VisibilityTranslator visibilityTranslator;
     private final WorkspaceRepository workspaceRepository;
+    private final UserRepository userRepository;
     private final String clockwiseRotationIri;
     private final String yAxisFlippedIri;
     private final String conceptIri;
@@ -57,13 +59,15 @@ public class VertexUploadImage implements ParameterizedHandler {
             final OntologyRepository ontologyRepository,
             final WorkQueueRepository workQueueRepository,
             final VisibilityTranslator visibilityTranslator,
-            final WorkspaceRepository workspaceRepository
+            final WorkspaceRepository workspaceRepository,
+            final UserRepository userRepository
     ) {
         this.graph = graph;
         this.ontologyRepository = ontologyRepository;
         this.workQueueRepository = workQueueRepository;
         this.visibilityTranslator = visibilityTranslator;
         this.workspaceRepository = workspaceRepository;
+        this.userRepository = userRepository;
 
         this.conceptIri = ontologyRepository.getRequiredConceptIRIByIntent("entityImage");
         this.entityHasImageIri = ontologyRepository.getRequiredRelationshipIRIByIntent("entityHasImage");
@@ -102,9 +106,12 @@ public class VertexUploadImage implements ParameterizedHandler {
 
         Metadata metadata = new Metadata();
         VisalloProperties.VISIBILITY_JSON_METADATA.setMetadata(metadata, visibilityJson, visibilityTranslator.getDefaultVisibility());
+        VisalloProperties.MODIFIED_DATE_METADATA.setMetadata(metadata, new Date(), visibilityTranslator.getDefaultVisibility());
+        VisalloProperties.MODIFIED_BY_METADATA.setMetadata(metadata, userRepository.getSystemUser().getUserId(), visibilityTranslator.getDefaultVisibility());
+
 
         String title = imageTitle(entityVertex);
-        ElementBuilder<Vertex> artifactVertexBuilder = convertToArtifact(file, title, visibilityJson, metadata, user, visibility);
+        ElementBuilder<Vertex> artifactVertexBuilder = convertToArtifact(file, title, visibilityJson, metadata, userRepository.getSystemUser(), visibility);
         Vertex artifactVertex = artifactVertexBuilder.save(authorizations);
         this.graph.flush();
 
