@@ -3,7 +3,7 @@
  * container component is responsible for listening for events to request more
  * elements and fulfilling that request.
  *
- * @module
+ * @module components/List
  * @flight Render lists of entities and relationships (vertices/edges)
  * @attr {Array.<Object>} items Elements (vertices/edges) to render
  * @attr {boolean} singleSelection Whether the user can use keyboard shift/alt to select multiple
@@ -61,10 +61,11 @@ define([
      * This allows plugins to adjust how list items are displayed in search results,
      * details panels, or anywhere else the lists are used.
      *
-     * @param {object} config
-     * @param {org.visallo.entity.listItemRenderer~canHandle} config.canHandle Whether the extension should run given an item and usageContext
-     * @param {object} [config.component] The FlightJS component to handle rendering
-     * @param {string} [config.componentPath] Path to FlightJS component
+     * Requires either `component` or `componentPath`
+     *
+     * @param {org.visallo.entity.listItemRenderer~canHandle} canHandle Whether the extension should run given an item and usageContext
+     * @param {org.visallo.entity~Component} [component] The FlightJS component to handle rendering
+     * @param {string} [componentPath] Path to {@link org.visallo.entity.listItemRenderer~Component}
      */
     registry.documentExtensionPoint('org.visallo.entity.listItemRenderer',
         'Implement custom implementations for rendering items into element lists',
@@ -366,6 +367,15 @@ define([
 
             el.children('a').teardownAllComponents();
             el.empty();
+
+            /**
+             * Flight Component that handles row rendering for a given
+             * `item` and `usageContext`.
+             *
+             * @typedef org.visallo.entity.listItemRenderer~Component
+             * @property {object} item The rows item value
+             * @property {string} usageContext The context of this element list
+             */
             itemRenderer.attachTo($('<a class="draggable"/>').appendTo(el), { item: item, usageContext: usageContext });
 
             this.applyDraggable(el[0]);

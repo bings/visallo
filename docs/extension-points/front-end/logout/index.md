@@ -1,6 +1,6 @@
 # Logout
 
-Plugin to add custom logout handlers. When the user explicetly logs out, or session expiration.
+Plugin to add custom logout handlers. When the user explicitly logs out, or session expiration.
 
 ```js
 require(['configuration/plugins/registry'], function(registry) {

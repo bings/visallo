@@ -3,20 +3,20 @@
     "destination": "./build/jsdoc/",
     "recurse": true,
     "readme": "./README.md",
-    "template": "./node_modules/visallo-jsdoc-template"
+    "template": "/Users/jharwig/Code/work/aux/visallo-jsdoc-template"
   },
   "tags": {
     "allowUnknownTags": true,
     "dictionaries": ["jsdoc","closure"]
   },
   "source": {
-    "include": [ "js/" ],
+    "include": [ "js/", "../../../../plugins" ],
     "includePattern": ".+\\.js(doc|x)?$",
-    "excludePattern": "(^|\\/|\\\\)_"
+    "excludePattern": "(^|\\/|\\\\)_|dist|node_modules|target"
   },
   "plugins": [
     "plugins/markdown",
-    "./node_modules/visallo-jsdoc-template/plugins/visallo"
+    "/Users/jharwig/Code/work/aux/visallo-jsdoc-template/plugins/visallo"
   ],
   "templates": {
     "cleverLinks": true,

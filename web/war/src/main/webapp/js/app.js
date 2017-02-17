@@ -105,12 +105,20 @@ define([
 
             this.triggerPaneResized = _.debounce(this.triggerPaneResized.bind(this), 10);
 
-            registry.documentExtensionPoint('org.visallo.fileImport',
-                'Override file import based on mime/type',
-                function(e) {
-                    return ('mimeType' in e) && _.isFunction(e.handler);
-                }
-            );
+            /**
+             * Register a handler that is notified of logout. Happens before
+             * the request to logout.
+             *
+             * If the handler returns `false` all other logout handlers are skipped and the default logout process is cancelled.
+             *
+             * @param {function} config The function to call during logout.
+             * @returns {boolean} To cancel logout return `false`
+             * @example
+             * registry.registerExtension('org.visallo.logout', function() {
+             *     window.location.href = '/logout';
+             *     return false;
+             * });
+             */
             registry.documentExtensionPoint('org.visallo.logout',
                 'Override logout',
                 function(e) {
@@ -425,22 +433,12 @@ define([
                 }
             }
 
-            var mimeType = thing.length === 1 && thing[0].type,
-                fileImportExtensions = registry.extensionsForPoint('org.visallo.fileImport'),
-                fileImportExtensionsByMimeType = _.indexBy(fileImportExtensions, 'mimeType'),
-                extension;
-
-            if (mimeType in fileImportExtensionsByMimeType) {
-                extension = fileImportExtensionsByMimeType[mimeType];
-                extension.handler(thing[0], event);
-            } else {
-                // If graph is open use that node for custom product behavior
-                // TODO: generalize this for other products
-                var $graph = $('.visible .org-visallo-graph');
-                require(['util/popovers/fileImport/fileImport'], function(FileImport) {
-                    FileImport.attachTo($graph.length ? $graph : self.node, config);
-                });
-            }
+            // If graph is open use that node for custom product behavior
+            // TODO: generalize this for other products
+            var $graph = $('.visible .org-visallo-graph');
+            require(['util/popovers/fileImport/fileImport'], function(FileImport) {
+                FileImport.attachTo($graph.length ? $graph : self.node, config);
+            });
         };
 
         this.toggleActivityPane = function() {

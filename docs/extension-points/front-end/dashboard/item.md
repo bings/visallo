@@ -1,6 +1,6 @@
 ## Dashboard Items
 
-The `org.visallo.web.dashboard.item` extension allows custom content to be rendered in a card on dashboards. They can be included in defaults dashboards using the `org.visallo.web.dashboard.layout` extension, or added manually by users. All built-in items are defined in [`registerDefaultItems.js`](https://github.com/v5analytics/visallo/blob/master/web/war/src/main/webapp/js/dashboard/registerDefaultItems.js).
+
 
 ### Configuration Options
 

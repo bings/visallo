@@ -38,6 +38,19 @@ define([
             this.components = [];
 
             if (extension.configurationPath) {
+                /**
+                 * FlightJS or React component that renders card configuration
+                 * content.
+                 *
+                 * For Flight, `trigger` an event with the name of the
+                 * function instead of invoking directly.
+                 *
+                 * @typedef org.visallo.dashboard.item~ConfigComponent
+                 * @property {object} extension
+                 * @property {object} item
+                 * @property {object} [report]
+                 * @property {org.visallo.dashboard.item~configurationChanged} configurationChanged Change the configuration
+                 */
                 paths.push(extension.configurationPath);
             }
 

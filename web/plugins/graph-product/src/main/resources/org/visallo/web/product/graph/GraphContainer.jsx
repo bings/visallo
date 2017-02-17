@@ -83,6 +83,12 @@ define([
         },
         'http://docs.visallo.org/extension-points/front-end/graphView'
     );
+
+    /**
+     * Register a function that can add or remove classes from cytoscape nodes for custom styling.
+     *
+     * @param {org.visallo.graph.node.class~classFn} config
+     */
     registry.documentExtensionPoint('org.visallo.graph.node.class',
         'Function that can change cytoscape classes of nodes',
         function(e) {
@@ -90,6 +96,12 @@ define([
         },
         'http://docs.visallo.org/extension-points/front-end/graphNode/class.html'
     );
+
+    /**
+     * Register a function that can add or remove classes from cytoscape edges for custom styling.
+     *
+     * @param {org.visallo.graph.edge.class~classFn} config
+     */
     registry.documentExtensionPoint('org.visallo.graph.edge.class',
         'Function that can change cytoscape classes of edges',
         function(e) {
@@ -97,6 +109,11 @@ define([
         },
         'http://docs.visallo.org/extension-points/front-end/graphEdge/class.html'
     );
+
+    /**
+     * Allows extensions to adjust the `data` attribute of cytoscape nodes.
+     * @param {org.visallo.graph.node.transformer~transformerFn} config
+     */
     registry.documentExtensionPoint('org.visallo.graph.node.transformer',
         'Function that can change cytoscape node structure',
         function(e) {
@@ -104,6 +121,11 @@ define([
         },
         'http://docs.visallo.org/extension-points/front-end/graphNode/transformer.html'
     );
+
+    /**
+     * Allows extensions to adjust the `data` attribute of cytoscape edges.
+     * @param {org.visallo.graph.edge.transformer~transformerFn} config
+     */
     registry.documentExtensionPoint('org.visallo.graph.edge.transformer',
         'Function that can change cytoscape edge structure',
         function(e) {

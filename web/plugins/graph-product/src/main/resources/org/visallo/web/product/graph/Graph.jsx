@@ -787,6 +787,23 @@ define([
 
         if (edges.length) {
             return transformers.reduce((data, fn) => {
+
+                /**
+                 * Mutate the object to change the edge data.
+                 *
+                 * @callback org.visallo.graph.edge.transformer~transformerFn
+                 * @param {object} data The cytoscape data object
+                 * @param {string} data.source The source vertex id
+                 * @param {string} data.target The target vertex id
+                 * @param {string} data.type The edge label IRI
+                 * @param {string} data.label The edge label display value
+                 * @param {array.<object>} data.edgeInfos
+                 * @param {array.<object>} data.edges
+                 * @example
+                 * function transformer(data) {
+                 *     data.myCustomAttr = '';
+                 * }
+                 */
                 fn(data)
                 return data;
             }, base)
@@ -797,6 +814,19 @@ define([
     const mapEdgeToClasses = (edgeInfos, edges, focusing, classers) => {
         const cls = [];
         if (edges.length) {
+
+            /**
+             * Mutate the classes array to adjust the classes.
+             *
+             * @callback org.visallo.graph.edge.class~classFn
+             * @param {array.<object>} edges List of edges that are collapsed into the drawn line. `length >= 1`.
+             * @param {string} type EdgeLabel of the collapsed edges.
+             * @param {array.<string>} classes List of classes that will be added to cytoscape edge.
+             * @example
+             * function(edges, type, cls) {
+             *     cls.push('org-example-cls');
+             * }
+             */
             classers.forEach(fn => fn(edges, edgeInfos.label, cls));
             cls.push('e');
         } else cls.push('partial')
@@ -902,6 +932,18 @@ define([
         const cls = [];
         if (id in vertices) {
             const vertex = vertices[id];
+
+            /**
+             * Mutate the classes array to adjust the classes.
+             *
+             * @callback org.visallo.graph.node.class~classFn
+             * @param {object} vertex The vertex that represents the node
+             * @param {array.<string>} classes List of classes that will be added to cytoscape node.
+             * @example
+             * function(vertex, cls) {
+             *     cls.push('org-example-cls');
+             * }
+             */
             classers.forEach(fn => fn(vertex, cls));
             cls.push('v');
         } else cls.push('partial')
@@ -926,6 +968,19 @@ define([
         };
 
         return transformers.reduce((data, t) => {
+            /**
+             * Return the transformed data object. Best to extend the data
+             * object rather than mutating it.
+             *
+             * @callback org.visallo.graph.node.transformer~transformerFn
+             * @param {object} vertex The vertex representing this node
+             * @param {object} data The cytoscape data object
+             * @return {object} transformed data
+             * @example
+             * function transformer(vertex, data) {
+             *     return { ...data, myCustomAttr: '...' };
+             * }
+             */
             t(vertex, data)
             return data;
         }, startingData);

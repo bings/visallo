@@ -20,7 +20,7 @@ define([
         /**
          * Utilities that assist in transforming vertices and edges.
          *
-         * @alias module:util/vertex/formatters.vertex
+         * @alias module:formatters.vertex
          * @namespace
          */
         V = {
