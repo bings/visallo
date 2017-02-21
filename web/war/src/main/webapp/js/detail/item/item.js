@@ -21,21 +21,21 @@ define([
     'use strict';
 
     /**
-     * The detail pane is rendered using a custom layout engine consisting of a tree of layout components.  
+     * The detail pane is rendered using a custom layout engine consisting of a tree of layout components.
      *
      * *Layout Components* are nodes in the layout tree that define the type of layout
      * and what children are included in the layout.
-     * 
+     *
      * The `children` defined in a layout component can be references (`ref`) to other
      * components, or FlightJS components specified with a `componentPath`. Layout
-     * components can also specify a flight component to be attached to the node for implementing behavior.  
+     * components can also specify a flight component to be attached to the node for implementing behavior.
      *
      * _Exactly one of the following is required: `render`, `collectionItem` or `children` (i.e., you cannot supply both render and collectionItem)._
      *
      * @param {org.visallo.layout.component~applyTo|org.visallo.layout.component~applyToFn} [applyTo] When does this component get used
      * @param {string} identifier Identifier of this component for use in other components in package syntax. Also transforms into css class – replacing package periods with dashes
      * @param {object} [layout]
-     * @param {string} [layout.type] Which {@link org.visallo.layout.type|layout type} to render `children`. 
+     * @param {string} [layout.type] Which {@link org.visallo.layout.type|layout type} to render `children`.
      * @param {object} [layout.options] Layout-specific options
      * @param {string} [componentPath] Additional FlightJS component to attach to this node for behavior
      * @param {string} [className] Additional css classname to add to DOM
@@ -64,7 +64,7 @@ define([
 
     /**
      * Visallo includes the [Flex](https://github.com/v5analytics/visallo/blob/master/web/war/src/main/webapp/js/detail/item/types/flex.js) layout type.
-     * 
+     *
      * Layout components are passed properties: `layoutConfig` and `children`
      *
      * @param {string} type The identifier for this layout type (used by layout components)

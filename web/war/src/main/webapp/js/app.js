@@ -609,7 +609,8 @@ define([
                     attacher()
                         .node(node)
                         .path(data.action.componentPath)
-                        .attach(options)
+                        .params(options)
+                        .attach()
                         .then(function() {
                             deferred.resolve();
                         });

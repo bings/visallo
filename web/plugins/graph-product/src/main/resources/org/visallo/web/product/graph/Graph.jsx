@@ -250,9 +250,15 @@ define([
         },
 
         getTools() {
+            /**
+             * @typedef org.visallo.graph.options~Component
+             * @property {object} cy The cytoscape instance
+             * @property {object} product The graph product
+             */
             return this.props.registry['org.visallo.graph.options'].map(e => ({
                 identifier: e.identifier,
-                componentPath: e.optionComponentPath
+                componentPath: e.optionComponentPath,
+                product: this.props.product
             }));
         },
 
@@ -611,6 +617,12 @@ define([
                     }
                     const vertex = vertices[id];
                     const applyDecorations = _.filter(registry['org.visallo.graph.node.decoration'], function(e) {
+                        /**
+                         * @callback org.visallo.graph.node.decoration~applyTo
+                         * @param {object} vertex
+                         * @returns {boolean} Whether the decoration should be
+                         * added to the node representing the vertex
+                         */
                         return !_.isFunction(e.applyTo) || e.applyTo(vertex);
                     });
                     if (applyDecorations.length) {
@@ -878,6 +890,12 @@ define([
             const vertexChanged = cache.previous && vertex !== cache.previous;
             const getData = () => {
                 var data;
+                /**
+                 * @callback org.visallo.graph.node.decoration~data
+                 * @param {object} vertex
+                 * @returns {object} The cytoscape data object for a decoration
+                 * given a vertex
+                 */
                 if (_.isFunction(decoration.data)) {
                     data = decoration.data(vertex);
                 } else if (decoration.data) {
@@ -918,6 +936,14 @@ define([
         if (_.isString(decoration.classes)) {
             cls = cls.concat(decoration.classes.trim().split(/\s+/));
         } else if (_.isFunction(decoration.classes)) {
+
+            /**
+             * @callback org.visallo.graph.node.decoration~classes
+             * @param {object} vertex
+             * @returns {array.<string>|string} The classnames to add to the
+             * node, either an array of classname strings, or space-separated
+             * string
+             */
             var newClasses = decoration.classes(vertex);
             if (!_.isArray(newClasses) && _.isString(newClasses)) {
                 newClasses = newClasses.trim().split(/\s+/);

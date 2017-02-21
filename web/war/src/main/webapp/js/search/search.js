@@ -24,6 +24,29 @@ define([
 
     var SEARCH_TYPES = ['Visallo'];
 
+    /**
+     * Search toolbar items display below the search query input field.
+     *
+     * They have access to the current search query (if available),
+     * and can react to click events with content in a popover, or a custom event.
+     * @param {string} tooltip What to display in `title` attribute
+     * @param {string} icon URL path to icon to display. Use monochromatic icon with black as color. Opacity is adjusted automatically, and modified on hover.
+     * @param {object} action Action to take place on click events. Must include `type` key set to one of:
+     * @param {string} action.type Type of action event to occur: `popover` or `event`
+     * @param {string} [action.componentPath] Required when `type='popover'`
+     * Path to {@link org.visallo.search.toolbar~Component}
+     * @param {string} [action.name] Required when `type='event'`, name of
+     * event to fire
+     *
+     *     // action: { type: 'event', name: 'MyCustomEventName' }
+     *     $(document).on('myCustomEventName', function(event, data) {
+     *         // data.extension
+     *         // data.currentSearch
+     *     })
+     * @param {org.visallo.search.toolbar~canHandle} [canHandle] Set a function to determine if the toolbar icon should be displayed.
+     * @param {org.visallo.search.toolbar~onElementCreated} [onElementCreated] Will be called after icon ImageElement is created.
+     * @param {org.visallo.search.toolbar~onClick} [onClick] Function will be called during click event, before the `action` behavior
+     */
     registry.documentExtensionPoint('org.visallo.search.toolbar',
         'Add toolbar icons under search query box',
         function(e) {
@@ -37,7 +60,38 @@ define([
                     (e.action.type === 'event' && e.action.name)
                 )
         },
-        'http://docs.visallo.com/extension-points/front-end/searchToolbar')
+        'http://docs.visallo.com/extension-points/front-end/searchToolbar'
+    );
+
+    /**
+     * Alternate search interfaces to replace the content in the search pane.
+     *
+     * Each of the search interfaces has its own saved searches.
+     *
+     * @param {string} componentPath Path to Flight {@link org.visallo.search.advanced~Component}
+     * @param {string} displayName The text to display in search dropdown (to
+     * select the type of search interface)
+     * @param {string} savedSearchUrl The endpoint to execute when search is changed
+     */
+    registry.documentExtensionPoint('org.visallo.search.advanced',
+        'Add alternate search interfaces',
+        function(e) {
+            return (e.componentPath && e.displayName && e.savedSearchUrl);
+        },
+        'http://docs.visallo.com/extension-points/front-end/searchAdvanced'
+    );
+
+    /**
+     * @undocumented
+     */
+    registry.documentExtensionPoint('org.visallo.search.filter',
+        'Add new types of search filters',
+        function(e) {
+            return ('searchType' in e) &&
+                ('componentPath' in e);
+        },
+        'http://docs.visallo.org/extension-points/front-end/searchFilters'
+    );
 
     return defineComponent(Search, withDataRequest, withElementScrollingPositionUpdates);
 
@@ -74,15 +128,6 @@ define([
             this.currentSearchByUrl = {};
             this.currentSearchUrl = '';
 
-            registry.documentExtensionPoint('org.visallo.search.filter',
-                'Add new types of search filters',
-                function(e) {
-                    return ('searchType' in e) &&
-                        ('componentPath' in e);
-                },
-                'http://docs.visallo.org/extension-points/front-end/searchFilters'
-            );
-
             this.triggerQueryUpdatedThrottled = _.throttle(this.triggerQueryUpdated.bind(this), 100);
             this.triggerQueryUpdated = _.debounce(this.triggerQueryUpdated.bind(this), 500);
 
@@ -115,6 +160,18 @@ define([
             this.on(document, 'menubarToggleDisplay', this.onToggleDisplay);
         });
 
+        /**
+         * Fired when user selects a saved search.
+         * {@link org.visallo.search.advanced~Component|AdvancedSearch}
+         * components should listen and load the search
+         *
+         * @event org.visallo.search.advanced#savedQuerySelected
+         * @property {object} data
+         * @property {object} data.query
+         * @property {object} data.query.url The search endpoint
+         * @property {object} data.query.parameters The search endpoint
+         * parameters
+         */
         this.onSavedQuerySelected = function(event, data) {
             this.trigger('searchByParameters', data.query);
         };
@@ -144,6 +201,13 @@ define([
                 });
         };
 
+        /**
+         * @event org.visallo.search.advanced#setCurrentSearchForSaving
+         * @property {object} data
+         * @property {string} data.url The endpoint url (should match extension
+         * point savedSearchUrl)
+         * @property {object} data.parameters The paramters to send to endpoint
+         */
         this.onSetCurrentSearchForSaving = function(event, data) {
             if ($(event.target).is(this.attr.savedSearchSelector)) return;
 
@@ -176,6 +240,14 @@ define([
 
             var $container = this.select('queryExtensionsSelector'),
                 items = _.filter(extensions, function(e) {
+                    /**
+                     * @callback org.visallo.search.toolbar~canHandle
+                     * @param {object} [currentSearch] Could be null if
+                     * current search is invalid
+                     * @param {object} currentSearch.url
+                     * @param {object} currentSearch.parameters
+                     * @returns {boolean} If the item can handle the search
+                     */
                     return !_.isFunction(e.canHandle) || e.canHandle(self.currentSearch);
                 });
 
@@ -186,6 +258,11 @@ define([
                     this.enter().append('button')
                         .each(function(e) {
                             if (_.isFunction(e.onElementCreated)) {
+                                /**
+                                 * @callback org.visallo.search.toolbar~onElementCreated
+                                 * @param {Element} element The dom element that the
+                                 * toolbar item is in
+                                 */
                                 e.onElementCreated(this)
                             }
                         })
@@ -206,6 +283,12 @@ define([
             event.preventDefault();
             if (extension) {
                 if (_.isFunction(extension.onClick)) {
+                    /**
+                     * @callback org.visallo.search.toolbar~onClick
+                     * @param {Event} event The click event
+                     * @returns {boolean} If false the `action` defined in the
+                     * extension won't execute.
+                     */
                     if (extension.onClick(event) === false) {
                         event.stopPropagation();
                         return;
@@ -570,6 +653,21 @@ define([
 
                 if (attach) {
                     require([path], function(AdvancedSearchExtension) {
+                        /**
+                         * Responsible for displaying the interface for
+                         * searching, and displaying the results.
+                         *
+                         * @typedef org.visallo.search.advanced~Component
+                         * @property {string} resultsSelector Css selector to
+                         * container that will hold results
+                         * @see module:components/List
+                         * @listens org.visallo.search.advanced#savedQuerySelected
+                         * @fires org.visallo.search.advanced#setCurrentSearchForSaving
+                         * @example <caption>Rendering results</caption>
+                         * List.attachTo($(this.attr.resultsSelector), {
+                         *     items: results
+                         * })
+                         */
                         AdvancedSearchExtension.attachTo($container, {
                             resultsSelector: cls
                         });
@@ -691,12 +789,6 @@ define([
         };
 
         this.render = function() {
-            registry.documentExtensionPoint('org.visallo.search.advanced',
-                'Add alternate search interfaces',
-                function(e) {
-                    return (e.componentPath && e.displayName && e.savedSearchUrl);
-                }
-            );
             var self = this,
                 advancedSearch = registry.extensionsForPoint('org.visallo.search.advanced');
 

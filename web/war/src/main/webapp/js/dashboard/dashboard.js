@@ -41,13 +41,13 @@ define([
      * Either `componentPath` or `report` is required.
      *
      * ## Report
-     * 
+     *
      * Instead of specifying a component to render, specify a report
      * template that requests data from the server and passes the results
      * to a {@link org.visallo.dashboard.reportRenderer} that can handle that data. The most common
-     * report uses search with aggregations configured.  
+     * report uses search with aggregations configured.
      *
-     * An item can be a report if either: 
+     * An item can be a report if either:
      * * The extension defines the `report`
      * * a component registered with `componentPath` saves a `report` inside the items configuration, e.g. `item.configuration.report = { ... }`
      *
@@ -125,7 +125,7 @@ define([
      * `geohash` Group by value of `field` with geohash [`precision` _(required)_](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-geohashgrid-aggregation.html) and return counts.
      *
      * `histogram` Group range (specified by [`interval` _(required)_](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-histogram-aggregation.html)) of values and their counts.
-     * 
+     *
      * `statistics` Statistics for property: [`min`, `max`, `count`, `average`, `sum`](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-stats-aggregation.html).
      *
      * @typedef org.visallo.dashboard.item~aggregation
@@ -171,7 +171,7 @@ define([
      *
      * ## withReportRenderer Mixin
      *
-     * If the renderer uses the mixin, the only function required is `render`. Optionally, a `processData` function can be defined to transform the raw server results. It's better to process the data in `processData` function instead of `render` because it will run once on `refreshData` events, instead of on every `reflow` event.  
+     * If the renderer uses the mixin, the only function required is `render`. Optionally, a `processData` function can be defined to transform the raw server results. It's better to process the data in `processData` function instead of `render` because it will run once on `refreshData` events, instead of on every `reflow` event.
      *
      * The render function is called with four parameters `render(d3, svgNode, data, d3tip)`
      * * `d3` `[Object]` The d3 library object
@@ -186,7 +186,7 @@ define([
      * @param {string} [configurationPath] RequireJS path to extra configuration.
      * @example <caption>Using Mixin</caption>
      * define(['public/v1/api', 'dashboard/reportRenderers/withRenderer'], function(defineComponent, withReportRenderer) {
-     *     return defineComponent(MyReportRenderer, withReportRenderer) 
+     *     return defineComponent(MyReportRenderer, withReportRenderer)
      *     function MyReportRenderer() {
      *         this.render = function() { ... }
      *     }
@@ -213,7 +213,7 @@ define([
      *
      * Only one extension should be registered or an error will log to console.
      * The default layout is defined in [`defaultLayout.js`](https://github.com/v5analytics/visallo/blob/master/web/war/src/main/webapp/js/dashboard/defaultLayout.js).
-     * 
+     *
      * @param {Array} config Array of dashboard item configurations
      * @example
      * registry.registerExtension('org.visallo.dashboard.layout', [
@@ -393,7 +393,7 @@ define([
 
             /**
              * Dashboard requests card to reflow because its container size has changed.
-             * 
+             *
              * Consider using `_.throttle` or `_.debounce` to limit the cost of many reflow events from user resizing.
              *
              * @event org.visallo.dashboard.item#reflow
@@ -892,7 +892,7 @@ define([
                      *     const updated = getUpdatedConfiguration();
                      *     this.props.configurationChanged({
                      *         item: { ...item, configuration: updated },
-                     *         extension 
+                     *         extension
                      *     });
                      * }
                      * @example <caption>FlightJS Notify Finished</caption>
